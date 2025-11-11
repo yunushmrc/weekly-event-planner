@@ -1,13 +1,22 @@
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
+const eventColors = {
+  spor: "bg-gradient-to-br from-emerald-900/50 to-emerald-800/30 border-emerald-700/50 hover:ring-emerald-600",
+  art: "bg-gradient-to-br from-amber-900/50 to-amber-800/30 border-amber-700/50 hover:ring-amber-600",
+  restoran: "bg-gradient-to-br from-rose-900/50 to-rose-800/30 border-rose-700/50 hover:ring-rose-600",
+  ev: "bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-blue-700/50 hover:ring-blue-600",
+};
+
 function EventCard({ event, dateKey, onToggle, onDelete, onNoteChange }) {
+  const colorClass = eventColors[event.type] || "bg-gray-800 border-gray-700 hover:ring-gray-600";
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      className="bg-gray-800 rounded-xl shadow-md border border-gray-700 mt-2 p-3 flex flex-col gap-2 transition-all hover:ring-1 hover:ring-gray-600 hover:shadow-lg"
+      className={`${colorClass} rounded-xl shadow-md border mt-2 p-3 flex flex-col gap-2 transition-all hover:ring-1 hover:shadow-lg`}
     >
       {/* ÜST: emoji + başlık + tip */}
       <div className="flex flex-col items-start gap-1">
