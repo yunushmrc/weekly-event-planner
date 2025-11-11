@@ -1,5 +1,5 @@
 import "./index.css";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, useDroppable, DragOverlay } from "@dnd-kit/core";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -244,12 +244,23 @@ export default function App() {
     }));
   };
 
-  const updateNote = (dateKey, id, note) => {
-    setEventsForDay((prev) => ({
-      ...prev,
-      [dateKey]: prev[dateKey].map((w) => (w.id === id ? { ...w, note } : w)),
-    }));
-  };
+  const debounceTimers = useRef({});
+
+  const updateNote = useCallback((dateKey, id, note) => {
+    const key = `${dateKey}-${id}`;
+
+    if (debounceTimers.current[key]) {
+      clearTimeout(debounceTimers.current[key]);
+    }
+
+    debounceTimers.current[key] = setTimeout(() => {
+      setEventsForDay((prev) => ({
+        ...prev,
+        [dateKey]: prev[dateKey].map((w) => (w.id === id ? { ...w, note } : w)),
+      }));
+      delete debounceTimers.current[key];
+    }, 500);
+  }, []);
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
