@@ -1,26 +1,15 @@
 import "./index.css";
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { DndContext, useDroppable, DragOverlay } from "@dnd-kit/core";
+import React, { useState, useEffect } from "react";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { tr } from "date-fns/locale";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
 import EventCard from "./components/EventCard";
 import SortableEventCard from "./components/SortableEventCard";
-
-const daysOfWeek = [
-  "Pazartesi",
-  "Salı",
-  "Çarşamba",
-  "Perşembe",
-  "Cuma",
-  "Cumartesi",
-  "Pazar",
-];
+import { getWeekDates, daysOfWeek } from "./utils/weekUtils";
+import DayColumn from "./components/DayColumn";
+import { arrayMove } from "@dnd-kit/sortable";
+import "./datepicker-theme.css";
 
 // Tarihi "2025-11-03" gibi key'e çeviren fonksiyon
 const getDateKey = (date) => {
@@ -28,101 +17,11 @@ const getDateKey = (date) => {
   d.setHours(0, 0, 0, 0);
   return d.toISOString().slice(0, 10);
 };
-// İstediğimiz haftanın günlerini (gün adı + tarih + iso) döndürür
-function getWeekDates(weekOffset = 0) {
-  const now = new Date();
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-
-  // Bu haftanın pazartesini bul
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-
-  // weekOffset kadar hafta kaydır (negatif = geçmiş, pozitif = gelecek)
-  monday.setDate(monday.getDate() + weekOffset * 7);
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-
-    return {
-      day: daysOfWeek[i],
-      dateLabel: date.toLocaleDateString("tr-TR", {
-        day: "numeric",
-        month: "short",
-      }),
-      year: date.getFullYear(),
-      iso: date.toISOString().slice(0, 10), // 2025-11-03 gibi
-    };
-  });
-}
 
 const defaultData = daysOfWeek.reduce((acc, day) => {
   acc[day] = [];
   return acc;
 }, {});
-
-function DayColumn({
-  day,
-  dateLabel,
-  iso,
-  eventsForDay,
-  onToggle,
-  onDelete,
-  onNoteChange,
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: iso,
-    data: { type: "day", dateKey: iso },
-  });
-
-  const [dayNumber, monthLabel] = dateLabel.split(" "); // "11 Kas" -> ["11", "Kas"]
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex flex-col rounded-2xl bg-slate-900/80 border border-slate-800 px-4 py-3 min-h-[260px] transition-all ${
-        isOver
-          ? "ring-2 ring-blue-500/80 shadow-lg shadow-blue-500/20"
-          : "hover:border-slate-700"
-      }`}
-    >
-      <header className="flex items-center justify-between mb-4 gap-2">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium tracking-wide uppercase text-slate-400">
-            {day}
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-semibold text-slate-50">
-              {dayNumber}
-            </span>
-            <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-              {monthLabel}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {eventsForDay?.length ? (
-        <SortableContext
-          items={eventsForDay.map((e) => e.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {eventsForDay.map((e) => (
-            <SortableEventCard key={e.id} id={e.id} dateKey={iso}>
-              <EventCard
-                event={e}
-                dateKey={iso}
-                onToggle={onToggle}
-                onDelete={onDelete}
-                onNoteChange={onNoteChange}
-              />
-            </SortableEventCard>
-          ))}
-        </SortableContext>
-      ) : null}
-    </div>
-  );
-}
 
 export default function App() {
   // Kullanıcının tanımladığı sporlar (örnek başlangıç)
@@ -244,23 +143,14 @@ export default function App() {
     }));
   };
 
-  const debounceTimers = useRef({});
-
-  const updateNote = useCallback((dateKey, id, note) => {
-    const key = `${dateKey}-${id}`;
-
-    if (debounceTimers.current[key]) {
-      clearTimeout(debounceTimers.current[key]);
-    }
-
-    debounceTimers.current[key] = setTimeout(() => {
+  const updateNote = (dateKey, id, note) => {
+    {
       setEventsForDay((prev) => ({
         ...prev,
         [dateKey]: prev[dateKey].map((w) => (w.id === id ? { ...w, note } : w)),
       }));
-      delete debounceTimers.current[key];
-    }, 500);
-  }, []);
+    }
+  };
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
