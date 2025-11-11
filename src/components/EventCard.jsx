@@ -17,6 +17,11 @@ function EventCard({ event, dateKey, onToggle, onDelete, onNoteChange }) {
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
       className={`${colorClass} rounded-xl shadow-md border mt-2 p-3 flex flex-col gap-2 transition-all hover:ring-1 hover:shadow-lg`}
+      onPointerDownCapture={(e) => {
+        if (e.target.tagName === "TEXTAREA") {
+          e.stopPropagation();
+        }
+      }}
     >
       {/* ÜST: emoji + başlık + tip */}
       <div className="flex flex-col items-start gap-1">
@@ -47,6 +52,9 @@ function EventCard({ event, dateKey, onToggle, onDelete, onNoteChange }) {
           onChange={(e) =>
             onNoteChange(dateKey, event.id, e.target.value)
           }
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
         />
       </div>
 
