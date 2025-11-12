@@ -13,7 +13,6 @@ function DayColumn({
   iso,
   eventsForDay,
   onToggle,
-  onDelete,
   onNoteChange,
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -26,7 +25,7 @@ function DayColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-2xl bg-slate-900/80 border border-slate-800 px-4 py-3 min-h-[260px] transition-all ${
+      className={`flex flex-col w-full rounded-2xl bg-slate-900/80 border border-slate-800 p-4 min-h-[280px] transition-all ${
         isOver
           ? "ring-2 ring-blue-500/80 shadow-lg shadow-blue-500/20"
           : "hover:border-slate-700"
@@ -59,7 +58,6 @@ function DayColumn({
                 event={e}
                 dateKey={iso}
                 onToggle={onToggle}
-                onDelete={onDelete}
                 onNoteChange={onNoteChange}
               />
             </SortableEventCard>

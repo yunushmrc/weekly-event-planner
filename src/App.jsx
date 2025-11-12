@@ -11,6 +11,8 @@ import DayColumn from "./components/DayColumn";
 import { arrayMove } from "@dnd-kit/sortable";
 import "./datepicker-theme.css";
 import { PlusCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import AlertModal from "./components/AlertModal";
+import TrashDropzone from "./components/TrashDropzone";
 
 // Tarihi "2025-11-03" gibi key'e çeviren fonksiyon
 const getDateKey = (date) => {
@@ -25,7 +27,15 @@ const defaultData = daysOfWeek.reduce((acc, day) => {
 }, {});
 
 export default function App() {
-  // Kullanıcının tanımladığı sporlar (örnek başlangıç)
+  const [isOverTrash, setIsOverTrash] = useState(false);
+
+  const [alert, setAlert] = useState({ open: false, message: "" });
+
+  const showLimitAlert = () =>
+    setAlert({
+      open: true,
+      message: "Bir güne en fazla 3 event ekleyebilirsin.",
+    });
   const [showModal, setShowModal] = useState(false);
   const [newSport, setNewSport] = useState({ name: "", emoji: "" });
   const [events, setEventsForDay] = useState(() => {
@@ -44,61 +54,85 @@ export default function App() {
   // Hafta kaydırma için: 0 = bu hafta, -1 = bir önceki, +1 = sonraki...
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = getWeekDates(weekOffset);
+
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    setActiveEvent(null); // 👈 drag bitince overlay'i temizle
+    setActiveEvent(null); // overlay'i temizle
+    setIsOverTrash(false); // çöp-hover bayrağını sıfırla
 
     if (!over) return;
 
     const activeData = active.data.current;
     const overData = over.data.current;
 
-    // Drag edilen event için kaynak gün ve id
+    // Drag edilen kartın kaynak gün ve id'si
     const sourceDateKey = activeData?.dateKey;
     const activeId = activeData?.id;
-
     if (!sourceDateKey || !activeId) return;
 
+    // ========= 0) ÇÖP'E BIRAKILDIYSA: SİL ve çık =========
+    if (over.id === "trash") {
+      setEventsForDay((prev) => {
+        const src = prev[sourceDateKey] || [];
+        const newSrc = src.filter((e) => e.id !== activeId);
+        if (newSrc.length === src.length) return prev; // bulunamadı
+        return { ...prev, [sourceDateKey]: newSrc };
+      });
+      return;
+    }
+
+    // ========= 1) ÖN KONTROL: Hedef gün dolu mu? =========
+    // (Aynı gün içi sıralamada çalışmaz)
+    let preCheckTargetKey = null;
+    if (overData?.type === "day" || overData?.type === "event") {
+      preCheckTargetKey = overData.dateKey;
+    }
+    if (preCheckTargetKey && preCheckTargetKey !== sourceDateKey) {
+      const targetCount = (events[preCheckTargetKey] || []).length;
+      if (targetCount >= 3) {
+        showLimitAlert(); // "Bir güne en fazla 3 event ekleyebilirsin."
+        return; // bırakmayı iptal et
+      }
+    }
+
+    // ========= 2) ASIL GÜNCELLEME =========
     setEventsForDay((prev) => {
       const sourceList = prev[sourceDateKey] || [];
 
-      // Kaynak listedeki event'i bul
+      // Kaynak listedeki kartı bul
       const oldIndex = sourceList.findIndex((e) => e.id === activeId);
       if (oldIndex === -1) return prev;
       const item = sourceList[oldIndex];
 
-      // ---- 1) AYNI GÜN İÇİNDE SIRALAMA ----
+      // ---- 2A) AYNI GÜN İÇİ SIRALAMA ----
       if (
-        overData?.type === "event" && // bir event'in üstüne bırakıldıysa
-        overData.dateKey === sourceDateKey && // aynı güne aitse
-        overData.id !== activeId // kendisi değilse
+        overData?.type === "event" &&
+        overData.dateKey === sourceDateKey &&
+        overData.id !== activeId
       ) {
         const newIndex = sourceList.findIndex((e) => e.id === overData.id);
         if (newIndex === -1 || newIndex === oldIndex) return prev;
 
         const reordered = arrayMove(sourceList, oldIndex, newIndex);
-
-        return {
-          ...prev,
-          [sourceDateKey]: reordered,
-        };
+        return { ...prev, [sourceDateKey]: reordered };
       }
 
-      // ---- 2) FARKLI GÜNE TAŞIMA ----
-      // Hedef günü overData'dan oku (gün kolonuna da, başka günün event'ine de bıraksan aynı)
+      // ---- 2B) FARKLI GÜNE TAŞIMA ----
       let targetDateKey = sourceDateKey;
-
       if (overData?.type === "day" || overData?.type === "event") {
         targetDateKey = overData.dateKey;
       }
+      if (!targetDateKey || targetDateKey === sourceDateKey) return prev;
 
-      // Hedef gün yoksa ya da zaten aynı günse: bir şey yapma
-      if (!targetDateKey || targetDateKey === sourceDateKey) {
+      const targetList = prev[targetDateKey] || [];
+
+      // ---- 2C) GÜVENLİK: setState içinde de limit kontrolü ----
+      if (targetList.length >= 3) {
+        setTimeout(showLimitAlert, 0);
         return prev;
       }
 
       const newSourceList = sourceList.filter((e) => e.id !== activeId);
-      const targetList = prev[targetDateKey] || [];
       const targetDate = new Date(targetDateKey);
 
       return {
@@ -108,6 +142,7 @@ export default function App() {
       };
     });
   };
+
   const handleDragStart = (event) => {
     const { active } = event;
     const activeData = active.data.current;
@@ -137,13 +172,6 @@ export default function App() {
     }));
   };
 
-  const deleteEvent = (dateKey, id) => {
-    setEventsForDay((prev) => ({
-      ...prev,
-      [dateKey]: prev[dateKey].filter((w) => w.id !== id),
-    }));
-  };
-
   const updateNote = (dateKey, id, note) => {
     {
       setEventsForDay((prev) => ({
@@ -154,7 +182,11 @@ export default function App() {
   };
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      onDragStart={handleDragStart}
+      onDragOver={(e) => setIsOverTrash(e.over?.id === "trash")}
+      onDragEnd={handleDragEnd}
+    >
       <div className="relative p-6 flex flex-col items-center bg-black min-h-screen text-white">
         {/* BAŞLIK */}
         <h1 className="text-3xl font-bold mb-6">Event Planner</h1>
@@ -185,8 +217,8 @@ export default function App() {
         </div>
 
         {/* HAFTALIK GÖRÜNÜM – TEK GRID */}
-        <div className="w-full max-w-5xl">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-2">
+        <div className="w-full max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 auto-rows-max gap-6 mt-4">
             {weekDates.map(({ day, dateLabel, iso }) => (
               <DayColumn
                 key={iso}
@@ -195,7 +227,6 @@ export default function App() {
                 iso={iso}
                 eventsForDay={events[iso] || []}
                 onToggle={toggleCompleted}
-                onDelete={deleteEvent}
                 onNoteChange={updateNote}
               />
             ))}
@@ -272,6 +303,14 @@ export default function App() {
 
                     const dateKey = getDateKey(newEvent.date);
 
+                    // ⛔ Gün başına 3 kart sınırı
+                    const currentCount = (events[dateKey] || []).length;
+                    if (currentCount >= 3) {
+                      setShowModal(false); // istersen kapatma; açık kalsın dersen bu satırı sil
+                      showLimitAlert();
+                      return;
+                    }
+
                     setEventsForDay((prev) => ({
                       ...prev,
                       [dateKey]: [
@@ -307,15 +346,22 @@ export default function App() {
           </div>
         )}
       </div>
+      <TrashDropzone />
 
+      <AlertModal
+        open={alert.open}
+        message={alert.message}
+        onClose={() => setAlert({ open: false, message: "" })}
+      />
       <DragOverlay>
         {activeEvent ? (
           <EventCard
             event={activeEvent}
-            dateKey="" // overlay'de handlers no-op olduğu için önemli değil
+            dateKey=""
             onToggle={() => {}}
-            onDelete={() => {}}
             onNoteChange={() => {}}
+            shrink={isOverTrash}
+            deletePreview={isOverTrash} // 👈 kırmızı alarm modu
           />
         ) : null}
       </DragOverlay>
