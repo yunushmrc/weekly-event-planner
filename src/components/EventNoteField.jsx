@@ -37,7 +37,7 @@ function EventNoteField({ dateKey, eventId, note, onNoteChange }) {
       onChange={handleChange}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
-      maxLength={15}
+      maxLength={30}
       rows={2}
       onPointerDownCapture={(e) => e.stopPropagation()}
       onPointerMove={(e) => e.stopPropagation()}

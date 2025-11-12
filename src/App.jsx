@@ -10,9 +10,11 @@ import { getWeekDates, daysOfWeek } from "./utils/weekUtils";
 import DayColumn from "./components/DayColumn";
 import { arrayMove } from "@dnd-kit/sortable";
 import "./datepicker-theme.css";
-import { PlusCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, ChevronLeft, ChevronRight, Palette } from "lucide-react";
 import AlertModal from "./components/AlertModal";
 import TrashDropzone from "./components/TrashDropzone";
+import EventDetailsModal from "./components/EventDetailsModal";
+import { EVENT_THEMES } from "./config/themeConfig";
 
 // Tarihi "2025-11-03" gibi key'e çeviren fonksiyon
 const getDateKey = (date) => {
@@ -27,6 +29,34 @@ const defaultData = daysOfWeek.reduce((acc, day) => {
 }, {});
 
 export default function App() {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsCtx, setDetailsCtx] = useState({ dateKey: null, event: null });
+
+  const openDetails = (event, dateKey) => {
+    setDetailsCtx({ dateKey, event });
+    setDetailsOpen(true);
+  };
+
+  const closeDetails = () => {
+    setDetailsOpen(false);
+    setDetailsCtx({ dateKey: null, event: null });
+  };
+
+  // Modal içinden gelen patch'i güncelle
+  const saveDetailsPatch = (updated) => {
+    const { dateKey, event } = detailsCtx;
+    if (!dateKey || !event) return;
+
+    setEventsForDay((prev) => {
+      const list = prev[dateKey] || [];
+      const idx = list.findIndex((x) => x.id === event.id);
+      if (idx === -1) return prev;
+
+      const newList = [...list];
+      newList[idx] = { ...newList[idx], ...updated };
+      return { ...prev, [dateKey]: newList };
+    });
+  };
   const [isOverTrash, setIsOverTrash] = useState(false);
 
   const [alert, setAlert] = useState({ open: false, message: "" });
@@ -44,11 +74,13 @@ export default function App() {
   });
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventType, setEventType] = useState("");
+  const [newEventTheme, setNewEventTheme] = useState("emerald");
 
   const [newEvent, setNewEvent] = useState({
     day: "Pazartesi",
     title: "",
     date: new Date(),
+    time: "", // "HH:mm"
   });
 
   // Hafta kaydırma için: 0 = bu hafta, -1 = bir önceki, +1 = sonraki...
@@ -180,6 +212,11 @@ export default function App() {
       }));
     }
   };
+  const handleNewEventNameChange = (value) => {
+    const cleaned = value.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü\s]/g, "").slice(0, 16);
+
+    setNewSport((prev) => ({ ...prev, name: cleaned }));
+  };
 
   return (
     <DndContext
@@ -208,11 +245,17 @@ export default function App() {
           />
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setNewEvent((prev) => ({
+                ...prev,
+                time: "", // 👈 popup açılmadan önce saat temizleniyor
+              }));
+              setShowModal(true);
+            }}
             className="inline-flex items-center gap-2 rounded-full bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-emerald-950 shadow-md shadow-emerald-500/40 transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
-            Yeni Event
+            Event Ekle
           </button>
         </div>
 
@@ -228,6 +271,7 @@ export default function App() {
                 eventsForDay={events[iso] || []}
                 onToggle={toggleCompleted}
                 onNoteChange={updateNote}
+                onOpenDetails={openDetails}
               />
             ))}
           </div>
@@ -253,8 +297,10 @@ export default function App() {
         {/* MODAL */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
-            <div className="bg-gray-900 p-6 rounded-xl shadow-lg w-80">
-              <h2 className="text-lg font-semibold mb-3">Yeni Event Ekle</h2>
+            <div className="bg-slate-900/95 p-6 rounded-2xl shadow-2xl border border-slate-700 w-[420px]">
+              <h2 className="text-xl font-semibold text-slate-50 mb-4">
+                Event Ekle
+              </h2>
 
               <select
                 className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded mb-3 text-white"
@@ -262,7 +308,7 @@ export default function App() {
                 onChange={(e) => setEventType(e.target.value)}
               >
                 <option value="" disabled hidden>
-                  Select Event
+                  Event Tipleri
                 </option>
                 <option value="spor">Spor</option>
                 <option value="art">Sanat</option>
@@ -272,12 +318,11 @@ export default function App() {
 
               <input
                 type="text"
-                placeholder="Event Adı (Koşu, Film, Akşam Yemeği...)"
+                placeholder="Event Adı"
                 className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded mb-3 text-white"
                 value={newSport.name}
-                onChange={(e) =>
-                  setNewSport({ ...newSport, name: e.target.value })
-                }
+                onChange={(e) => handleNewEventNameChange(e.target.value)}
+                maxLength={16}
               />
 
               <input
@@ -289,6 +334,59 @@ export default function App() {
                   setNewSport({ ...newSport, emoji: e.target.value })
                 }
               />
+              {/* Tema seçimi – renkli dot'lar */}
+              <div className="mb-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-300">
+                  <Palette className="w-3.5 h-3.5" /> Tema
+                </div>
+                <div className="flex items-center gap-3">
+                  {EVENT_THEMES.map((t) => {
+                    const selected = newEventTheme === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => setNewEventTheme(t.key)}
+                        className={`
+            relative flex items-center justify-center 
+            w-7 h-7 rounded-full border 
+            transition-all duration-150
+            ${
+              selected
+                ? "border-emerald-400 ring-2 ring-emerald-400/70 scale-105"
+                : "border-slate-600 hover:border-slate-400"
+            }
+          `}
+                        aria-label={t.label}
+                        title={t.label}
+                      >
+                        <span
+                          className={`w-4 h-4 rounded-full ${t.dotClass}`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="block text-xs text-slate-300 mb-1">
+                  Saat
+                </label>
+                <input
+                  type="time"
+                  value={newEvent.time || ""} // 👈 state’ten oku
+                  onChange={(e) =>
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      time: (e.target.value || "").slice(0, 5), // HH:mm
+                    }))
+                  }
+                  step="60"
+                  className="w-40 bg-slate-950/70 border border-slate-700/80 rounded-lg px-3 py-2 text-sm text-slate-200 focus:ring-1 focus:ring-emerald-500/60 focus:outline-none"
+                  required
+                />
+              </div>
 
               <div className="flex justify-between">
                 <button
@@ -297,7 +395,8 @@ export default function App() {
                       !newSport.name ||
                       !newSport.emoji ||
                       !eventType ||
-                      !newEvent.date
+                      !newEvent.date ||
+                      !newEvent.time
                     )
                       return;
 
@@ -323,21 +422,28 @@ export default function App() {
                           completed: false,
                           note: "",
                           date: newEvent.date,
+                          time: newEvent.time, // 👈 KAYDA YAZ
+                          theme: newEventTheme,
                         },
                       ],
                     }));
 
                     setNewSport({ name: "", emoji: "" });
                     setEventType("");
+                    setNewEventTheme("emerald"); // default'a dön
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      time: "", // 👈 kayıttan sonra da temizle
+                    }));
                     setShowModal(false);
                   }}
-                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+                  className="rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950"
                 >
                   Kaydet
                 </button>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded"
+                  className="rounded-full bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-medium border border-slate-700 text-slate-200"
                 >
                   İptal
                 </button>
@@ -346,6 +452,14 @@ export default function App() {
           </div>
         )}
       </div>
+      <EventDetailsModal
+        open={detailsOpen}
+        event={detailsCtx.event}
+        dateKey={detailsCtx.dateKey}
+        onClose={closeDetails}
+        onSave={saveDetailsPatch}
+        onNoteChange={updateNote}
+      />
       <TrashDropzone />
 
       <AlertModal

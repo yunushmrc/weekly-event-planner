@@ -14,6 +14,7 @@ function DayColumn({
   eventsForDay,
   onToggle,
   onNoteChange,
+  onOpenDetails
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: iso,
@@ -59,6 +60,7 @@ function DayColumn({
                 dateKey={iso}
                 onToggle={onToggle}
                 onNoteChange={onNoteChange}
+                onOpenDetails={onOpenDetails}
               />
             </SortableEventCard>
           ))}
