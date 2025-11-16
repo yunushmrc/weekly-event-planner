@@ -15,6 +15,8 @@ import AlertModal from "./components/AlertModal";
 import TrashDropzone from "./components/TrashDropzone";
 import EventDetailsModal from "./components/EventDetailsModal";
 import { EVENT_THEMES } from "./config/themeConfig";
+import EmojiPicker from "./components/EmojiPicker";
+import PassToLastOrNewWeek from "./components/PassToLastOrNewWeeks";
 
 // Tarihi "2025-11-03" gibi key'e çeviren fonksiyon
 const getDateKey = (date) => {
@@ -31,6 +33,8 @@ const defaultData = daysOfWeek.reduce((acc, day) => {
 export default function App() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsCtx, setDetailsCtx] = useState({ dateKey: null, event: null });
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const openDetails = (event, dateKey) => {
     setDetailsCtx({ dateKey, event });
@@ -96,6 +100,7 @@ export default function App() {
 
     const activeData = active.data.current;
     const overData = over.data.current;
+    const overId = over.id;
 
     // Drag edilen kartın kaynak gün ve id'si
     const sourceDateKey = activeData?.dateKey;
@@ -103,13 +108,53 @@ export default function App() {
     if (!sourceDateKey || !activeId) return;
 
     // ========= 0) ÇÖP'E BIRAKILDIYSA: SİL ve çık =========
-    if (over.id === "trash") {
+    if (overId === "trash") {
       setEventsForDay((prev) => {
         const src = prev[sourceDateKey] || [];
         const newSrc = src.filter((e) => e.id !== activeId);
         if (newSrc.length === src.length) return prev; // bulunamadı
         return { ...prev, [sourceDateKey]: newSrc };
       });
+      return;
+    }
+
+    // ========= 0.5) HAFTA OKLARINA BIRAKMA =========
+    if (overId === "week-prev" || overId === "week-next") {
+      const direction = overId === "week-prev" ? -1 : 1;
+      const targetWeekOffset = weekOffset + direction;
+
+      // Yeni haftanın günlerini al, ilk günü hedef olacak
+      const nextWeekDates = getWeekDates(targetWeekOffset);
+      const targetDateKey = nextWeekDates[0]?.iso; // haftanın ilk günü (Pazartesi)
+
+      if (!targetDateKey) return;
+
+      setEventsForDay((prev) => {
+        const sourceList = prev[sourceDateKey] || [];
+        const idx = sourceList.findIndex((e) => e.id === activeId);
+        if (idx === -1) return prev;
+
+        const item = sourceList[idx];
+        const targetList = prev[targetDateKey] || [];
+
+        // Gün başına 3 event limiti
+        if (targetList.length >= 3) {
+          setTimeout(showLimitAlert, 0);
+          return prev;
+        }
+
+        const newSourceList = sourceList.filter((e) => e.id !== activeId);
+        const targetDate = new Date(targetDateKey);
+
+        return {
+          ...prev,
+          [sourceDateKey]: newSourceList,
+          [targetDateKey]: [...targetList, { ...item, date: targetDate }],
+        };
+      });
+
+      // Haftayı da görsel olarak değiştir
+      setWeekOffset(targetWeekOffset);
       return;
     }
 
@@ -218,6 +263,59 @@ export default function App() {
     setNewSport((prev) => ({ ...prev, name: cleaned }));
   };
 
+  const handleSaveNewEvent = (e) => {
+    if (e) e.preventDefault(); // Enter veya buton tıklandığında sayfa yenilenmesin
+
+    // Zorunlu alan kontrolleri
+    if (
+      !newSport.name ||
+      !newSport.emoji ||
+      !eventType ||
+      !newEvent.date ||
+      !newEvent.time
+    ) {
+      return;
+    }
+
+    const dateKey = getDateKey(newEvent.date);
+
+    // Gün başına 3 event sınırı
+    const currentCount = (events[dateKey] || []).length;
+    if (currentCount >= 3) {
+      setShowModal(false); // istersen bunu kaldır, popup açık kalsın
+      showLimitAlert();
+      return;
+    }
+
+    // Event'i ekle
+    setEventsForDay((prev) => ({
+      ...prev,
+      [dateKey]: [
+        ...(prev[dateKey] || []),
+        {
+          id: Date.now(),
+          title: newSport.name,
+          emoji: newSport.emoji,
+          type: eventType,
+          completed: false,
+          note: "",
+          date: newEvent.date,
+          time: newEvent.time,
+          theme: newEventTheme,
+        },
+      ],
+    }));
+
+    // Form state'lerini sıfırla
+    setNewSport({ name: "", emoji: "" });
+    setEventType("");
+    setNewEventTheme("emerald");
+    setNewEvent((prev) => ({
+      ...prev,
+      time: "",
+    }));
+    setShowModal(false);
+  };
   return (
     <DndContext
       onDragStart={handleDragStart}
@@ -248,7 +346,7 @@ export default function App() {
             onClick={() => {
               setNewEvent((prev) => ({
                 ...prev,
-                time: "", // 👈 popup açılmadan önce saat temizleniyor
+                time: "", // popup açılmadan önce saat temizleniyor
               }));
               setShowModal(true);
             }}
@@ -259,9 +357,12 @@ export default function App() {
           </button>
         </div>
 
-        {/* HAFTALIK GÖRÜNÜM – TEK GRID */}
+        {/* HAFTALIK GÖRÜNÜM – 7 GÜN YAN YANA */}
         <div className="w-full max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 auto-rows-max gap-6 mt-4">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 
+               gap-6 mt-6 auto-rows-fr"
+          >
             {weekDates.map(({ day, dateLabel, iso }) => (
               <DayColumn
                 key={iso}
@@ -277,63 +378,122 @@ export default function App() {
           </div>
         </div>
 
-        {/* HAFTALAR ARASI GEÇİŞ OKLARI – EKRAN ORTASI, SAĞ/SOL */}
-        <button
+        {/* HAFTALAR ARASI GEÇİŞ OKLARI */}
+        <PassToLastOrNewWeek
+          id="week-prev"
+          side="left"
           onClick={() => setWeekOffset(weekOffset - 1)}
-          className="fixed left-6 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-9 w-9 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 shadow-lg shadow-black/40 transition-colors z-20"
-          aria-label="Önceki hafta"
         >
           <ChevronLeft className="w-4 h-4" />
-        </button>
+        </PassToLastOrNewWeek>
 
-        <button
+        <PassToLastOrNewWeek
+          id="week-next"
+          side="right"
           onClick={() => setWeekOffset(weekOffset + 1)}
-          className="fixed right-6 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-9 w-9 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 shadow-lg shadow-black/40 transition-colors z-20"
-          aria-label="Sonraki hafta"
         >
           <ChevronRight className="w-4 h-4" />
-        </button>
+        </PassToLastOrNewWeek>
 
         {/* MODAL */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
-            <div className="bg-slate-900/95 p-6 rounded-2xl shadow-2xl border border-slate-700 w-[420px]">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50"
+            onClick={() => {
+              setShowEmojiPicker(false);
+              setShowModal(false);
+            }}
+          >
+            <form
+              onSubmit={handleSaveNewEvent}
+              onClick={(e) => e.stopPropagation()} // dış tıklama kapanışı engelle
+              className="bg-slate-900/95 p-6 rounded-2xl shadow-2xl border border-slate-700 w-[420px]"
+            >
               <h2 className="text-xl font-semibold text-slate-50 mb-4">
                 Event Ekle
               </h2>
 
-              <select
-                className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded mb-3 text-white"
-                value={eventType}
-                onChange={(e) => setEventType(e.target.value)}
-              >
-                <option value="" disabled hidden>
-                  Event Tipleri
-                </option>
-                <option value="spor">Spor</option>
-                <option value="art">Sanat</option>
-                <option value="restoran">Restoran</option>
-                <option value="ev">Ev</option>
-              </select>
+              {/* EVENT TİPİ */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Event Tipi
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none rounded-xl bg-slate-950/70 border border-slate-700/80 px-3 py-2.5 text-sm text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:border-emerald-500
+                 transition-colors"
+                    value={eventType}
+                    onChange={(e) => setEventType(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled hidden>
+                      Event Tipleri
+                    </option>
+                    <option value="spor">Spor</option>
+                    <option value="art">Sanat</option>
+                    <option value="restoran">Restoran</option>
+                    <option value="ev">Ev</option>
+                  </select>
 
-              <input
-                type="text"
-                placeholder="Event Adı"
-                className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded mb-3 text-white"
-                value={newSport.name}
-                onChange={(e) => handleNewEventNameChange(e.target.value)}
-                maxLength={16}
-              />
+                  {/* custom ok simgesi */}
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-xs">
+                    ▼
+                  </span>
+                </div>
+              </div>
 
-              <input
-                type="text"
-                placeholder="Emoji"
-                className="w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded mb-4 text-white"
-                value={newSport.emoji}
-                onChange={(e) =>
-                  setNewSport({ ...newSport, emoji: e.target.value })
-                }
-              />
+              {/* EVENT ADI */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Event Adı
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-xl bg-slate-950/70 border border-slate-700/80 px-3 py-2.5 text-sm text-slate-100
+               placeholder:text-slate-500
+               focus:outline-none focus:ring-2 focus:ring-emerald-500/70 focus:border-emerald-500
+               transition-colors"
+                  placeholder="Örn: Koşu, Film, Yüzme..."
+                  value={newSport.name}
+                  onChange={(e) => handleNewEventNameChange(e.target.value)}
+                  maxLength={16}
+                  required
+                />
+              </div>
+
+              {/* EMOJI – Picker ile */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Emoji
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="w-full flex items-center justify-between rounded-xl bg-slate-950/70 border border-slate-700/80 px-3 py-2.5 text-sm text-slate-100
+                  hover:border-emerald-500/70 hover:bg-slate-800/70 transition-colors"
+                >
+                  <span className="text-xs text-slate-400">
+                    {newSport.emoji ? "Emojiyi değiştir" : "Emoji seç"}
+                  </span>
+                  <span className="text-lg">{newSport.emoji || "🙂"}</span>
+                </button>
+
+                {showEmojiPicker && (
+                  <div className="mt-3">
+                    <EmojiPicker
+                      value={newSport.emoji}
+                      onChange={(char) => {
+                        setNewSport((prev) => ({ ...prev, emoji: char }));
+                        setShowEmojiPicker(false);
+                      }}
+                      onClose={() => setShowEmojiPicker(false)}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Tema seçimi – renkli dot'lar */}
               <div className="mb-4">
                 <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-300">
@@ -348,15 +508,15 @@ export default function App() {
                         type="button"
                         onClick={() => setNewEventTheme(t.key)}
                         className={`
-            relative flex items-center justify-center 
-            w-7 h-7 rounded-full border 
-            transition-all duration-150
-            ${
-              selected
-                ? "border-emerald-400 ring-2 ring-emerald-400/70 scale-105"
-                : "border-slate-600 hover:border-slate-400"
-            }
-          `}
+                        relative flex items-center justify-center 
+                        w-7 h-7 rounded-full border 
+                        transition-all duration-150
+                        ${
+                          selected
+                            ? "border-emerald-400 ring-2 ring-emerald-400/70 scale-105"
+                            : "border-slate-600 hover:border-slate-400"
+                        }
+                      `}
                         aria-label={t.label}
                         title={t.label}
                       >
@@ -369,13 +529,14 @@ export default function App() {
                 </div>
               </div>
 
+              {/* SAAT */}
               <div className="mb-3">
                 <label className="block text-xs text-slate-300 mb-1">
                   Saat
                 </label>
                 <input
                   type="time"
-                  value={newEvent.time || ""} // 👈 state’ten oku
+                  value={newEvent.time || ""} // state’ten oku
                   onChange={(e) =>
                     setNewEvent((prev) => ({
                       ...prev,
@@ -388,70 +549,32 @@ export default function App() {
                 />
               </div>
 
-              <div className="flex justify-between">
+              {/* ALT BUTONLAR – EventDetailsModal ile aynı stil */}
+              <div className="mt-6 flex justify-end gap-2">
                 <button
+                  type="button"
                   onClick={() => {
-                    if (
-                      !newSport.name ||
-                      !newSport.emoji ||
-                      !eventType ||
-                      !newEvent.date ||
-                      !newEvent.time
-                    )
-                      return;
-
-                    const dateKey = getDateKey(newEvent.date);
-
-                    // ⛔ Gün başına 3 kart sınırı
-                    const currentCount = (events[dateKey] || []).length;
-                    if (currentCount >= 3) {
-                      setShowModal(false); // istersen kapatma; açık kalsın dersen bu satırı sil
-                      showLimitAlert();
-                      return;
-                    }
-
-                    setEventsForDay((prev) => ({
-                      ...prev,
-                      [dateKey]: [
-                        ...(prev[dateKey] || []),
-                        {
-                          id: Date.now(),
-                          title: newSport.name,
-                          emoji: newSport.emoji,
-                          type: eventType,
-                          completed: false,
-                          note: "",
-                          date: newEvent.date,
-                          time: newEvent.time, // 👈 KAYDA YAZ
-                          theme: newEventTheme,
-                        },
-                      ],
-                    }));
-
-                    setNewSport({ name: "", emoji: "" });
-                    setEventType("");
-                    setNewEventTheme("emerald"); // default'a dön
-                    setNewEvent((prev) => ({
-                      ...prev,
-                      time: "", // 👈 kayıttan sonra da temizle
-                    }));
+                    setShowEmojiPicker(false);
                     setShowModal(false);
                   }}
-                  className="rounded-full bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950"
-                >
-                  Kaydet
-                </button>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="rounded-full bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm font-medium border border-slate-700 text-slate-200"
+                  className="rounded-full px-4 py-2 text-sm bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700/80"
                 >
                   İptal
                 </button>
+                <button
+                  type="submit"
+                  disabled={!newSport.emoji}
+                  className="rounded-full px-5 py-2 text-sm font-semibold bg-emerald-500 text-emerald-950 hover:bg-emerald-400 shadow-md shadow-emerald-500/40
+                           disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-emerald-500"
+                >
+                  Kaydet
+                </button>
               </div>
-            </div>
+            </form>
           </div>
         )}
       </div>
+
       <EventDetailsModal
         open={detailsOpen}
         event={detailsCtx.event}
@@ -475,7 +598,7 @@ export default function App() {
             onToggle={() => {}}
             onNoteChange={() => {}}
             shrink={isOverTrash}
-            deletePreview={isOverTrash} // 👈 kırmızı alarm modu
+            deletePreview={isOverTrash} // kırmızı alarm modu
           />
         ) : null}
       </DragOverlay>

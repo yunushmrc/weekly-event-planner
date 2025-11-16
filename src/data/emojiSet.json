@@ -1,0 +1,121 @@
+{
+  "people": [
+    { "char": "🙂", "name": "smile" },
+    { "char": "😁", "name": "big_smile" },
+    { "char": "😂", "name": "joy" },
+    { "char": "😅", "name": "relieved" },
+    { "char": "😉", "name": "wink" },
+    { "char": "😍", "name": "heart_eyes" },
+    { "char": "🥰", "name": "in_love" },
+    { "char": "😎", "name": "cool" },
+    { "char": "🤔", "name": "thinking" },
+    { "char": "😴", "name": "sleepy" },
+    { "char": "😡", "name": "angry" },
+    { "char": "🥲", "name": "tear_smile" },
+    { "char": "😭", "name": "cry" }
+  ],
+
+  "sports": [
+    { "char": "⚽", "name": "football" },
+    { "char": "🏀", "name": "basketball" },
+    { "char": "🏈", "name": "american_football" },
+    { "char": "🎾", "name": "tennis" },
+    { "char": "🏐", "name": "volleyball" },
+    { "char": "🏉", "name": "rugby" },
+    { "char": "🏓", "name": "ping_pong" },
+    { "char": "🏸", "name": "badminton" },
+    { "char": "🥊", "name": "boxing" },
+    { "char": "🥋", "name": "martial_arts" },
+    { "char": "🏋️‍♂️", "name": "weight_lifting" },
+    { "char": "🏃‍♂️", "name": "running" },
+    { "char": "🏊‍♂️", "name": "swimming" },
+    { "char": "🚴‍♂️", "name": "cycling" },
+    { "char": "⛹️‍♂️", "name": "basketball_player" },
+    { "char": "🤸‍♂️", "name": "gymnastics" },
+    { "char": "⛷️", "name": "ski" },
+    { "char": "🏂", "name": "snowboard" }
+  ],
+
+  "activities": [
+    { "char": "🎬", "name": "movie" },
+    { "char": "🎧", "name": "music" },
+    { "char": "🎮", "name": "gaming" },
+    { "char": "🎨", "name": "art" },
+    { "char": "🎭", "name": "theater" },
+    { "char": "🎤", "name": "sing" },
+    { "char": "🎹", "name": "piano" },
+    { "char": "🎻", "name": "violin" },
+    { "char": "📚", "name": "reading" },
+    { "char": "✈️", "name": "travel" },
+    { "char": "🚗", "name": "drive" },
+    { "char": "🧘‍♂️", "name": "yoga" }
+  ],
+
+  "food": [
+    { "char": "🍔", "name": "burger" },
+    { "char": "🍟", "name": "fries" },
+    { "char": "🍕", "name": "pizza" },
+    { "char": "🌮", "name": "taco" },
+    { "char": "🍣", "name": "sushi" },
+    { "char": "🍜", "name": "noodles" },
+    { "char": "🥐", "name": "croissant" },
+    { "char": "🍩", "name": "donut" },
+    { "char": "🍰", "name": "cake" },
+    { "char": "🍫", "name": "chocolate" },
+    { "char": "☕", "name": "coffee" },
+    { "char": "🫖", "name": "tea" },
+    { "char": "🥤", "name": "drink" }
+  ],
+
+  "home": [
+    { "char": "🏠", "name": "home" },
+    { "char": "🛋️", "name": "sofa" },
+    { "char": "🛏️", "name": "bed" },
+    { "char": "🧹", "name": "clean" },
+    { "char": "🧺", "name": "laundry" },
+    { "char": "🍳", "name": "cooking" },
+    { "char": "🕯️", "name": "candle" },
+    { "char": "💡", "name": "idea" },
+    { "char": "🖥️", "name": "computer" },
+    { "char": "📺", "name": "tv" }
+  ],
+
+  "places": [
+    { "char": "🏙️", "name": "city" },
+    { "char": "🌃", "name": "night_city" },
+    { "char": "🏖️", "name": "beach" },
+    { "char": "⛰️", "name": "mountain" },
+    { "char": "🌆", "name": "sunset_city" },
+    { "char": "🌉", "name": "bridge" },
+    { "char": "🎢", "name": "roller_coaster" },
+    { "char": "🏟️", "name": "stadium" }
+  ],
+
+  "objects": [
+    { "char": "📱", "name": "phone" },
+    { "char": "⌚", "name": "watch" },
+    { "char": "💻", "name": "laptop" },
+    { "char": "🎧", "name": "headphones_obj" },
+    { "char": "📷", "name": "camera" },
+    { "char": "🎒", "name": "backpack" },
+    { "char": "✏️", "name": "pencil" },
+    { "char": "📅", "name": "calendar" },
+    { "char": "⏰", "name": "alarm" },
+    { "char": "🔑", "name": "key" },
+    { "char": "🧾", "name": "receipt" }
+  ],
+
+  "symbols": [
+    { "char": "❤️", "name": "heart" },
+    { "char": "💚", "name": "green_heart" },
+    { "char": "💙", "name": "blue_heart" },
+    { "char": "⭐", "name": "star" },
+    { "char": "🔥", "name": "fire" },
+    { "char": "✨", "name": "sparkles" },
+    { "char": "✅", "name": "check" },
+    { "char": "❌", "name": "cross" },
+    { "char": "⚠️", "name": "warning" },
+    { "char": "🎯", "name": "target" },
+    { "char": "🏆", "name": "trophy" }
+  ]
+}

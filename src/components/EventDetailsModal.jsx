@@ -1,9 +1,10 @@
 // src/components/EventDetailsModal.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Clock, Palette } from "lucide-react";
 import EventNoteField from "./EventNoteField";
 import { EVENT_THEMES } from "../config/themeConfig";
+import EmojiPicker from "./EmojiPicker";
 
 export default function EventDetailsModal({
   open,
@@ -18,9 +19,14 @@ export default function EventDetailsModal({
     note: event?.note || "",
     time: event?.time || "",
     theme: event?.theme || null,
+    emoji: event?.emoji || "",
   });
 
   const [editingTitle, setEditingTitle] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Modal kutusuna fokus atamak için ref
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (!event) return;
@@ -29,10 +35,19 @@ export default function EventDetailsModal({
       note: event.note || "",
       time: event.time || "",
       theme: event.theme || null,
+      emoji: event.emoji || "",
     });
     setEditingTitle(false);
+    setShowEmojiPicker(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
+
+  // Modal açıldığında klavye odağını modal kutusuna taşı
+  useEffect(() => {
+    if (open && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [open, event?.id]);
 
   // Modal kapalıysa / event yoksa hiçbir şey çizme
   if (!open || !event) return null;
@@ -41,9 +56,7 @@ export default function EventDetailsModal({
 
   // Başlık inputu: sadece harf + boşluk, max 16 karakter
   const handleTitleInput = (value) => {
-    const cleaned = value
-      .replace(/[^A-Za-zÇĞİÖŞÜçğıöşü\s]/g, "")
-      .slice(0, 16);
+    const cleaned = value.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü\s]/g, "").slice(0, 16);
 
     setDraft((prev) => ({ ...prev, title: cleaned }));
   };
@@ -72,13 +85,29 @@ export default function EventDetailsModal({
       note: draft.note,
       time: draft.time,
       theme: draft.theme,
+      emoji: draft.emoji || event.emoji || "🏷️",
     });
+    setShowEmojiPicker(false);
     onClose();
   };
 
   // İptal
   const handleCancel = () => {
+    setShowEmojiPicker(false);
     onClose();
+  };
+
+  // Modal içinde klavye kısayolları
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCancel();
+    }
   };
 
   // --- Render ---
@@ -97,8 +126,11 @@ export default function EventDetailsModal({
 
       {/* Modal kutusu */}
       <motion.div
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="relative z-[91] w-[60vw] max-w-4xl rounded-2xl border border-slate-700 bg-slate-900/95 shadow-2xl shadow-black/60 p-6"
         initial={{ y: 20, scale: 0.98, opacity: 0 }}
         animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -115,9 +147,35 @@ export default function EventDetailsModal({
 
         {/* ÜST: Emoji + başlık + tip */}
         <div className="flex items-start gap-4 mb-6">
-          {/* Emoji kutusu */}
-          <div className="shrink-0 rounded-xl bg-slate-800/60 border border-slate-700 w-16 h-16 flex items-center justify-center text-3xl">
-            <span>{event.emoji || "🏷️"}</span>
+          {/* Emoji kutusu + picker */}
+          <div className="shrink-0 relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEmojiPicker((v) => !v);
+              }}
+              className="rounded-xl bg-slate-800/60 border border-slate-700 w-16 h-16 flex items-center justify-center text-3xl hover:border-emerald-500/70 hover:bg-slate-800/80 transition-colors"
+              title="Emoji değiştir"
+            >
+              <span>{draft.emoji || event.emoji || "🏷️"}</span>
+            </button>
+
+            {showEmojiPicker && (
+              <div
+                className="absolute z-[92] mt-2 left-1/2 -translate-x-1/2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <EmojiPicker
+                  value={draft.emoji || event.emoji}
+                  onChange={(char) => {
+                    setDraft((prev) => ({ ...prev, emoji: char }));
+                    setShowEmojiPicker(false);
+                  }}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex-1">
